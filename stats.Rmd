@@ -1,0 +1,150 @@
+---
+title: "Assignment 2"
+author: "Lina Walkowiak"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    fig_width: 8
+    fig_height: 6
+---
+
+
+```{r setup, include=FALSE}
+# Load necessary libraries
+pacman::p_load('dslabs','ggplot2', 'tidyverse', 'dplyr', 'car')
+
+# Set global chunk options
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+### Part 1:Divorce rate and margarine consumption 
+```{r}
+df <- tibble(divorce_margarine)
+# quick plot
+ggplot(df, aes(x = divorce_rate_maine, y = margarine_consumption_per_capita)) + 
+  geom_point(colour = 'darkblue') + 
+  labs(x = "Divorce Rate in Maine", y = "Margarine Consumption per Capita") +
+  ggtitle("Divorce Rate vs. Margarine Consumption per Capita")+ 
+  theme_bw()
+```
+```{r}
+# is there a correlation? 
+cor.test(df$divorce_rate_maine, df$margarine_consumption_per_capita)
+```
+
+*While the correlation test reveals a near perfect correlation between margarine consumption and divorce rate, that does not allow for the conclusion of a causal relation between the two. Instead, there is most likely causes not accounted for that drive the two variables to change in accordance with each other.* 
+
+### Part 2: Vocabulary scores
+
+```{r}
+# load data and remove 
+gss <- tibble(GSSvocab)
+gss <- gss %>%
+  filter(year == 1978) %>%
+  na.exclude()
+head(gss)
+
+```
+```{r}
+# Plotting the relationship between education and vocabulary score
+ggplot(gss, aes(x = educ, y = vocab)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "lightblue", se = F) +
+  labs(title = "Education Level vs. Vocabulary Score",
+       x = "Years of Education",
+       y = "Vocabulary Score") +
+  theme_minimal()
+
+# Trying to plot it nicer and adding some ggplot things
+ggplot(gss, aes(x = factor(educ), y = vocab)) +
+  geom_boxplot(fill = "lightblue", color = "darkblue", outlier.color = "aquamarine4", outlier.shape = 16, outlier.size = 2) +
+  labs(title = "Vocabulary Scores by Years of Education",
+       x = "Years of Education",
+       y = "Vocabulary Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 12),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+
+```
+```{r}
+# First model: vocabulary score based on education level
+model_educ <- lm(vocab ~ educ, data = gss)
+summary(model_educ)
+
+```
+*As visualised in the plots, higher educational levels correspond to higher scores on the vocabulary test. This tendency is further supported by the linear model fit to the data, where the variable educ is significant for predicting the outcome variable of vocab. * 
+
+
+```{r}
+# Visualize native-born effect and add to model 
+ggplot(gss, aes(x = nativeBorn, y = vocab)) +
+  geom_boxplot(fill = "slateblue", alpha = 0.8) +
+  labs(title = "Vocabulary Scores by Native Born Status",
+       x = "Native Born",
+       y = "Vocabulary Score") +
+  theme_minimal()
+
+# Second model
+model_native <- lm(vocab ~ educ + nativeBorn, data = gss)
+summary(model_native)
+
+```
+
+*The boxplot depict the difference in vocabulary scores between native and non-native born participants. Native born have a slight tendency to perform better than the non-native counterpart. The linear model using both educ and nativeBorn as predictors shows that the language status is a significant predictor of vocabulary scores. *
+
+
+```{r}
+# Relationship between education level and nativeBorn
+ggplot(gss, aes(x = nativeBorn, y = educ)) +
+  geom_violin(fill = "slateblue", alpha=0.8) +
+  labs(title = "Education Level by Native Born Status",
+       x = "Native Born",
+       y = "Years of Education") +
+  theme_minimal()
+
+gss$nativeBorn <- as.factor(gss$nativeBorn)
+
+# Create density plot
+ggplot(gss, aes(x = educ, fill = nativeBorn)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Distribution of Education Levels by Native Born Status",
+       x = "Years of Education",
+       y = "Density",
+       fill = "Native Born") +
+  scale_fill_manual(values = c("no" = "darkblue", "yes" = "lightblue")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 12),
+    legend.position = "top"
+  )
+
+```
+*The plot showing the interaction between years of education and NativeBorn-Status indicates that both native and non-native individuals have a similar mode (around 12 years), but native-born individuals have a slightly more concentrated distribution, while non-native individuals show greater variability in educational attainment. No strong tendency emerges from plotting the two variables of interest, so an interaction term does not necessarily need to be added, but a model comparison can be carried out anyways to see if another trend emerges. *
+```{r}
+# Model with interaction term
+model_interaction <- lm(vocab ~ educ * nativeBorn, data = gss)
+summary(model_interaction)
+
+```
+
+```{r}
+# Compare model performance of tested models
+AIC(model_educ, model_native, model_interaction)
+anova(model_educ, model_native, model_interaction)
+
+```
+*The results suggest that both education and native-born status independently contribute to vocabulary scores, with native-born individuals scoring higher on average. However, the interaction between education and native-born status does not significantly improve the model, thereby implying that the effect of education on vocabulary is consistent across both groups. This is revealed by the lowest AIC values of the model including educ and native as independent predictors of vocab, as well as the Anova that was run to compare the models.*
